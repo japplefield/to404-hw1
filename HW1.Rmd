@@ -1,0 +1,301 @@
+---
+title: "Homework Assignment 1"
+author: "Justin Applefield"
+date: 'Wed Nov 3, 2021'
+output:
+  html_document: 
+    code_folding: hide
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    number_sections: true
+  pdf_document: default
+---
+
+# HW-1 Instructions
+
+> Our class emphasizes clear communication of data analysis results to non-technical audiences. I expect your HTML output documents to be readable and well formatted. I expect you to put ample comments in your R code to make the code understandable. Along with accuracy of results, I am looking for quality of presentation as well. To complete this assignment, follow these steps:
+
+1. Download the `HW1.Rmd` file from Canvas. 
+
+3. Open `HW1.Rmd` in RStudio. Replace the "Your Name Here" text in the `author:` field with your name.
+
+4. Supply your solutions to the homework by editing `HW1.Rmd`.
+
+5. Run your code in the Console and Knit HTML frequently to check for errors.
+
+6. You may find it easier to solve a problem by interacting only with the Console at first. 
+
+7. When you have completed the homework please check that your knits correctly when you click `Knit HTML`.
+
+8. "Push" all your local changes to the GitHub Repo for the project.
+
+9. Submit your RMD file, the HTML output and a link to your GitHub Repo on Canvas.
+
+
+# Data frame basics
+
+We will work with the nycflights dataset. **Please be sure to keep the data file in the same directory as the RMD file - your project directory.** and make that directory the working directory.
+
+First - make sure that you are reading the data correctly and doing all the data cleaning steps that we did in class. Feel free to go beyond our class work in cleaning the data if you feel the need. 
+
+```{r}
+# Read the data file
+nyc <- read.csv("nycflights.csv")
+nyc$X <- NULL
+head(nyc)
+
+# Structure of the data
+str(nyc)
+
+# Summary of the data
+summary(nyc)
+```
+
+## Data Cleaning
+
+We will clean our data now
+
+```{r}
+# Convert data to factors
+nyc$flight <- as.factor(nyc$flight)
+# nlevels(nyc$flight)
+nyc$carrier <- as.factor(nyc$carrier)
+nyc$tailnum <- as.factor(nyc$tailnum)
+nyc$origin <- as.factor(nyc$origin)
+nyc$dest <- as.factor(nyc$dest)
+
+# nyc$time_hour <- as.POSIXlt(nyc$time_hour)
+nyc$time_hour <- as.Date(nyc$time_hour)
+# nyc$time_hour <- strptime(nyc$time_hour, "%Y-%m-%d %H:%M:%S")
+
+str(nyc)
+
+summary(nyc)
+```
+
+
+
+I now would like you to answer the following - all in their own separate R code blocks.
+
+## Data Exploration
+
+Let's first do some simple exploration of this data. 
+
+- How many airlines are there? (Hint: `levels` and `length` can be useful here)
+
+```{r}
+nlevels(nyc$carrier)
+```
+
+
+- How many flights there were by the airline with code `OO`? (Hint: `nrow` can be useful here along with logical indexing)
+
+```{r}
+nrow(nyc[ nyc$carrier == "OO", ])
+```
+
+
+- How long is the shortest flight out of any NYC airport? (Hint: `min` can be useful, remember to handle `NA` values) - interpreted as shortest time.
+
+```{r}
+min(nyc$air_time, na.rm = TRUE)
+```
+
+The shortest flight you can take out of any New York airport is `r min(nyc$air_time, na.rm = TRUE)` minutes.
+
+- How many flights were there by United Airlines (code: UA) on Jan 12th 2013?
+
+```{r}
+nrow(nyc[ nyc$carrier == "UA" & nyc$time_hour == "2013-01-12", ])
+```
+
+There were `r nrow(nyc[ nyc$carrier == "UA" & nyc$time_hour == "2013-01-12", ])` flights by UA on Jan 12th 2013.
+
+
+
+## Arrival Delay
+
+Lets focus on Arrival Delay.
+
+- What was the average arrival delay for all airports and all airlines combined in 2013? 
+
+```{r}
+mean(nyc$arr_delay, na.rm = TRUE)
+```
+
+Average arrival delay for all airports and all airlines was `r mean(nyc$arr_delay, na.rm = TRUE)`.
+
+
+- Whats was the median arrival delay for all airports and all airlines combined in 2013?
+
+```{r}
+median(nyc$arr_delay, na.rm = TRUE)
+```
+
+Median arrival delay for all airports and all airlines combined in 2013 was `r median(nyc$arr_delay, na.rm = TRUE)`.
+
+Based on your answers to the two questions above, what can you say about the distribution of arrival delays? Provide your answer in a text paragraph form.
+
+Because the median arrival delay is negative and the mean arrival delay is positive, I can conclude that the majority of flights were not delayed, but there were a fair number of flights that were *very* delayed. Visually this is a distribution with a tall peak < 0, but with a long tail extending into the positives.
+
+There are `r nrow(nyc[ nyc$arr_delay >= 120 ,])` flights delayed by more than 2 hours.
+
+```{r}
+trim_q <- function(x, lb, ub){
+  x[(x > quantile(x, lb, na.rm=TRUE)) & (x < quantile(x, ub, na.rm=TRUE))]
+}
+
+hist(trim_q(nyc$arr_delay, 0.01, 0.99))
+```
+
+
+
+## Airline Performance
+
+Lets see if all airlines are equally terrible as far as flight arrival delays are concerned. For this question you will have to make sure that airline column is coded as a factor.
+
+- Calculate average arrival delays by airline (Hint: look up the command `tapply`)
+
+```{r}
+arr_delay_by_airline <- sort(tapply(nyc$arr_delay, nyc$carrier, mean, na.rm = TRUE), decreasing = TRUE)
+```
+
+
+- Draw a Bar Plot of Average Arrival Delays for all the Airlines (Hint: command for making a Bar Plot is simply `barplot`)
+
+```{r}
+barplot(arr_delay_by_airline, las=2, main="Avg Arrival Delay by Airline", xlab="Airline", ylab="Avg Arrival Delay")
+```
+
+
+- Which airline has the highest average arrival delay? Which airline has the smallest average arrival delay? Are there airlines that actually have negative average delay? Provide answer to this question in a text paragraph form using 
+
+The airline with the highest average arrival delay is `r names(which.max(arr_delay_by_airline))`. The airline with the smallest average arrival delay is `r names(which.min(arr_delay_by_airline))`. The airlines with negative average delay are `r names(which(arr_delay_by_airline < 0))`.
+
+
+## Air Gain
+
+Create a new column named airgain such that airgain = (departure delay - arrival delay) : this is the amount of delay a flight made up while in air.
+
+```{r}
+nyc$airgain <- nyc$dep_delay - nyc$arr_delay
+```
+
+
+a) Explore airgain data - calculate suitable descriptive statistics and appropriate graphics to better understand this data. This part is open ended - you do what you feel works best for you.
+
+b) Answer the questions:
+
+  - do airlines actually gain any time when in air on average? 
+  
+```{r}
+mean(nyc$airgain, na.rm = TRUE)
+median(nyc$airgain, na.rm = TRUE)
+
+hist(trim_q(nyc$airgain, 0.01, 0.99), main="Airgain Frequency", xlab="Airgain")
+```
+
+The proportion of flights with a positive (>0) airgain is `r nrow(nyc[nyc$airgain > 0, ]) / nrow(nyc)`.
+The proportion of flights with a meaningful (>=10) airgain is `r nrow(nyc[nyc$airgain >= 10, ]) / nrow(nyc)`.
+Airlines do on average gain some time in the air.
+
+  - Calculate average airgain for different airlines - which airlines do a better job, which do a worse job? 
+  
+```{r}
+avg_airgain_by_airline <- tapply(nyc$airgain, nyc$carrier, mean, na.rm = TRUE)
+barplot(avg_airgain_by_airline[order(avg_airgain_by_airline, decreasing=TRUE)], las=2, main="Avg. Airgain by Airline", xlab="Airline", ylab="Avg. Airgain")
+```
+
+The best airlines by airgain are AS and HA. The worst airlines by airgain are FL and F9.
+  
+
+# Merging Data Frames
+
+You can get detailed information about the physical planes in our dataset in this file: `planes.csv`. Download and save this file in your project directory.
+
+a) Read the `planes.csv` file using `read.csv` command. Do any data cleaning necessary.
+
+```{r}
+planes <- read.csv("planes.csv")
+planes$tailnum <- as.factor(planes$tailnum)
+planes$type <- as.factor(planes$type)
+planes$manufacturer <- as.factor(planes$manufacturer)
+planes$model <- as.factor(planes$model)
+planes$engine <- as.factor(planes$engine)
+planes$X <- NULL
+
+str(planes)
+summary(planes)
+```
+
+
+b) Merge the flights data and the planes data using the `merge` command. You should do the merge on the common column named `tailnum`. *getting this right may need some trial and error and getting some help*.
+
+```{r}
+flights_and_planes <- merge(nyc, planes, by="tailnum")
+```
+
+
+c) Now that you have a merged dataset, think of what interesting questions that you can ask that can be answered using the merged dataset. You are asked to pose five interesting questions and answer them. (For example: who are the top 10 manufacturers of planes that fly out of NYC airports?) **Be creative. Be bold. Ask questions that you would want to know answers to even if you were not doing this for a HW. **
+
+- What airline has the oldest planes?
+
+```{r}
+airline_avg_age <- tapply(flights_and_planes$year.y, flights_and_planes$carrier, mean, na.rm = TRUE)
+```
+
+The airline with the oldest planes is `r names(which.min(airline_avg_age))`.
+
+- Which plane has the best airgain?
+
+```{r}
+plane_avg_airgain <- tapply(flights_and_planes$airgain, flights_and_planes$model, mean, na.rm = TRUE)
+```
+
+The plane with the best airgain is the `r names(which.max(plane_avg_airgain))`.
+
+- Is there any difference in the most common plane of the most timely airline and the least timely airline (measured by arrival delay).
+
+```{r}
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+airline_most_common <- tapply(flights_and_planes$model, flights_and_planes$carrier, Mode)
+```
+
+The most timely airline, `r names(which.min(arr_delay_by_airline))`, most commonly flew a `r levels(flights_and_planes$model)[airline_most_common[names(which.min(arr_delay_by_airline))]]`. The least timely airline, `r names(which.max(arr_delay_by_airline))`, most commonly flew a `r levels(flights_and_planes$model)[airline_most_common[names(which.max(arr_delay_by_airline))]]`.
+
+- Assuming all flights are full, which airline had the highest average delayed-passenger-minutes?
+
+```{r}
+flights_and_planes$del_px_mins <- flights_and_planes$seats * flights_and_planes$arr_delay
+airline_avg_dpm <- tapply(flights_and_planes$del_px_mins, flights_and_planes$carrier, mean, na.rm = TRUE)
+```
+
+The airline with the highest average delayed-passenger-minutes was `r names(which.max(airline_avg_dpm))`. The airline with the lowest average delayed-passenger-minutes was `r names(which.min(airline_avg_dpm))`.
+
+- Which airline flew the most passengers out of New York in 2013? The least?
+
+```{r}
+airline_total_px <- tapply(flights_and_planes$seats, flights_and_planes$carrier, sum, na.rm = TRUE)
+```
+
+The airline that flew the most passengers out of New York in 2013 was `r names(which.max(airline_total_px))`. The airline that flew the least passengers out of New York in 2013 was `r names(which.min(airline_total_px))`. 
+
+
+# Making Your HTML Look Nice
+
+We want our report to be good looking, professional documents. To that end, I am asking you to do the following:
+
+- Have a floating table of contents
+
+- Include code folding in your output. You can find more about code folding here: https://bookdown.org/yihui/rmarkdown/html-document.html#code-folding
+
+
+That's it. Once you are done, make sure everything works and knits well and then you can push your changes to the GitHub repo and uplaod the RMD flile and the html output to Canvas.
+
+**Have Fun!**
+
+Sanjeev
